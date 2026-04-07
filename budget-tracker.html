@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spendly — Budget Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f0e8;
+      --surface: #fffdf7;
+      --ink: #1a1a18;
+      --muted: #7a7870;
+      --accent: #c84b2f;
+      --accent2: #2e7d5e;
+      --accent3: #d4a017;
+      --border: #d8d3c8;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    header {
+      max-width: 780px;
+      margin: 0 auto 2.5rem;
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+    }
+
+    header h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 2.8rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    header span.tagline {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Summary bar */
+    .summary {
+      max-width: 780px;
+      margin: 0 auto 2rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s;
+    }
+
+    .stat-card:hover { transform: translateY(-2px); }
+
+    .stat-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .stat-value.negative { color: var(--accent); }
+    .stat-value.positive { color: var(--accent2); }
+
+    /* Main layout */
+    .main {
+      max-width: 780px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.6rem;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.15rem;
+      font-weight: 300;
+      font-style: italic;
+      margin-bottom: 1.2rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.8rem;
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.9rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--ink);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(200,75,47,0.12);
+    }
+
+    .cat-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      margin-top: 0.4rem;
+      background: var(--ink);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button[type="submit"]:hover { background: var(--accent); transform: translateY(-1px); }
+    button[type="submit"]:active { transform: translateY(0); }
+
+    /* Expense list */
+    .expense-list {
+      list-style: none;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .expense-list::-webkit-scrollbar { width: 4px; }
+    .expense-list::-webkit-scrollbar-track { background: transparent; }
+    .expense-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .expense-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--border);
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .expense-item:last-child { border-bottom: none; }
+
+    .expense-left { display: flex; align-items: center; gap: 0.7rem; }
+
+    .cat-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .expense-name { font-size: 0.85rem; }
+    .expense-cat  { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .expense-right { display: flex; align-items: center; gap: 0.8rem; }
+    .expense-amount { font-size: 0.95rem; font-weight: 500; color: var(--accent); }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: var(--border);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .delete-btn:hover { color: var(--accent); }
+
+    .empty-msg {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 2rem 0;
+      font-style: italic;
+    }
+
+    /* Chart */
+    .chart-section {
+      grid-column: 1 / -1;
+    }
+
+    .chart-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .chart-row { display: flex; align-items: center; gap: 0.8rem; }
+
+    .chart-label {
+      width: 90px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .chart-bar-wrap {
+      flex: 1;
+      background: var(--bg);
+      border-radius: 4px;
+      height: 22px;
+      overflow: hidden;
+    }
+
+    .chart-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      min-width: 4px;
+    }
+
+    .chart-val {
+      width: 70px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* Category colors */
+    .color-food     { background: #c84b2f; }
+    .color-transport{ background: #2e7d5e; }
+    .color-housing  { background: #d4a017; }
+    .color-health   { background: #4a6fa5; }
+    .color-entertainment { background: #8b5cf6; }
+    .color-other    { background: #7a7870; }
+
+    .dot-food     { background: #c84b2f; }
+    .dot-transport{ background: #2e7d5e; }
+    .dot-housing  { background: #d4a017; }
+    .dot-health   { background: #4a6fa5; }
+    .dot-entertainment { background: #8b5cf6; }
+    .dot-other    { background: #7a7870; }
+
+    /* Budget bar */
+    .budget-section {
+      grid-column: 1 / -1;
+    }
+
+    .budget-bar-wrap {
+      background: var(--bg);
+      border-radius: 8px;
+      height: 28px;
+      overflow: hidden;
+      margin: 1rem 0 0.5rem;
+      border: 1.5px solid var(--border);
+    }
+
+    .budget-bar-fill {
+      height: 100%;
+      background: var(--accent2);
+      border-radius: 6px;
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1), background 0.3s;
+      position: relative;
+    }
+
+    .budget-bar-fill.over { background: var(--accent); }
+
+    .budget-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .budget-input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.8rem;
+    }
+
+    .budget-input-row input {
+      width: 140px;
+    }
+
+    .budget-input-row button {
+      background: var(--ink);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      padding: 0.55rem 1rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .budget-input-row button:hover { background: var(--accent2); }
+
+    @media (max-width: 600px) {
+      .main { grid-template-columns: 1fr; }
+      .chart-section, .budget-section { grid-column: 1; }
+      .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Spendly</h1>
+  <span class="tagline">Personal Budget Tracker</span>
+</header>
+
+<!-- Summary Cards -->
+<section class="summary" aria-label="Budget summary">
+  <article class="stat-card">
+    <p class="stat-label">Total Spent</p>
+    <p class="stat-value negative" id="total-spent" aria-live="polite">$0.00</p>
+  </article>
+  <article class="stat-card">
+    <p class="stat-label">Monthly Budget</p>
+    <p class="stat-value" id="budget-display">$1,000.00</p>
+  </article>
+  <article class="stat-card">
+    <p class="stat-label">Remaining</p>
+    <p class="stat-value positive" id="remaining" aria-live="polite">$1,000.00</p>
+  </article>
+</section>
+
+<main class="main">
+
+  <!-- Add Expense Form -->
+  <section class="panel" aria-labelledby="form-heading">
+    <h2 id="form-heading">Add Expense</h2>
+    <form id="expense-form" novalidate>
+      <div class="form-group">
+        <label for="expense-name">Description</label>
+        <input type="text" id="expense-name" name="description" placeholder="e.g. Grocery run" required />
+      </div>
+      <div class="form-group">
+        <label for="expense-amount">Amount ($)</label>
+        <input type="number" id="expense-amount" name="amount" placeholder="0.00" min="0.01" step="0.01" required />
+      </div>
+      <div class="cat-row">
+        <div class="form-group">
+          <label for="expense-category">Category</label>
+          <select id="expense-category" name="category" required>
+            <option value="food">🍔 Food</option>
+            <option value="transport">🚗 Transport</option>
+            <option value="housing">🏠 Housing</option>
+            <option value="health">💊 Health</option>
+            <option value="entertainment">🎮 Entertainment</option>
+            <option value="other">📦 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="expense-date">Date</label>
+          <input type="date" id="expense-date" name="date" required />
+        </div>
+      </div>
+      <button type="submit">Add Expense</button>
+    </form>
+  </section>
+
+  <!-- Expense List -->
+  <section class="panel" aria-labelledby="list-heading">
+    <h2 id="list-heading">Recent Expenses</h2>
+    <ul class="expense-list" id="expense-list" aria-label="List of expenses">
+      <li class="empty-msg" id="empty-msg">No expenses yet. Add one!</li>
+    </ul>
+  </section>
+
+  <!-- Budget Bar -->
+  <section class="panel budget-section" aria-labelledby="budget-heading">
+    <h2 id="budget-heading">Budget Usage</h2>
+    <div class="budget-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="budget-progressbar">
+      <div class="budget-bar-fill" id="budget-bar" style="width: 0%"></div>
+    </div>
+    <div class="budget-meta">
+      <span id="budget-pct">0% used</span>
+      <span id="budget-remaining-label">$1,000.00 left</span>
+    </div>
+    <div class="budget-input-row">
+      <label for="budget-input" style="width:auto; margin:0; white-space:nowrap;">Set Budget:</label>
+      <input type="number" id="budget-input" name="monthly-budget" placeholder="1000" min="1" step="1" value="1000" aria-label="Monthly budget amount" />
+      <button type="button" id="set-budget-btn">Update</button>
+    </div>
+  </section>
+
+  <!-- Category Chart -->
+  <section class="panel chart-section" aria-labelledby="chart-heading">
+    <h2 id="chart-heading">Spending by Category</h2>
+    <div class="chart-bars" id="chart-bars" aria-label="Spending breakdown by category">
+      <p class="empty-msg">Add expenses to see breakdown.</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const CATEGORIES = {
+    food:          { label: 'Food',          color: 'food' },
+    transport:     { label: 'Transport',     color: 'transport' },
+    housing:       { label: 'Housing',       color: 'housing' },
+    health:        { label: 'Health',        color: 'health' },
+    entertainment: { label: 'Entertainment', color: 'entertainment' },
+    other:         { label: 'Other',         color: 'other' },
+  };
+
+  let expenses = JSON.parse(localStorage.getItem('spendly_expenses') || '[]');
+  let budget   = parseFloat(localStorage.getItem('spendly_budget') || '1000');
+
+  // Set default date
+  document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('budget-input').value = budget;
+
+  function save() {
+    localStorage.setItem('spendly_expenses', JSON.stringify(expenses));
+    localStorage.setItem('spendly_budget', budget);
+  }
+
+  function fmt(n) {
+    return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function render() {
+    const total = expenses.reduce((s, e) => s + e.amount, 0);
+    const remaining = budget - total;
+    const pct = budget > 0 ? Math.min((total / budget) * 100, 100) : 0;
+
+    // Summary
+    document.getElementById('total-spent').textContent    = fmt(total);
+    document.getElementById('budget-display').textContent = fmt(budget);
+    document.getElementById('remaining').textContent      = fmt(remaining);
+    document.getElementById('remaining').className        = 'stat-value ' + (remaining < 0 ? 'negative' : 'positive');
+
+    // Budget bar
+    const bar = document.getElementById('budget-bar');
+    bar.style.width = pct + '%';
+    bar.classList.toggle('over', remaining < 0);
+    document.getElementById('budget-pct').textContent            = Math.round(pct) + '% used';
+    document.getElementById('budget-remaining-label').textContent = (remaining < 0 ? '-' : '') + fmt(Math.abs(remaining)) + (remaining < 0 ? ' over!' : ' left');
+    document.getElementById('budget-progressbar').setAttribute('aria-valuenow', Math.round(pct));
+
+    // Expense list
+    const list = document.getElementById('expense-list');
+    const empty = document.getElementById('empty-msg');
+    list.innerHTML = '';
+    if (expenses.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty-msg';
+      li.id = 'empty-msg';
+      li.textContent = 'No expenses yet. Add one!';
+      list.appendChild(li);
+    } else {
+      [...expenses].reverse().forEach((exp, ri) => {
+        const i = expenses.length - 1 - ri;
+        const cat = CATEGORIES[exp.category] || CATEGORIES.other;
+        const li = document.createElement('li');
+        li.className = 'expense-item';
+        li.setAttribute('aria-label', `${exp.name}, ${fmt(exp.amount)}, ${cat.label}`);
+        li.innerHTML = `
+          <div class="expense-left">
+            <span class="cat-dot dot-${cat.color}" aria-hidden="true"></span>
+            <div>
+              <div class="expense-name">${exp.name}</div>
+              <div class="expense-cat">${cat.label} · ${exp.date}</div>
+            </div>
+          </div>
+          <div class="expense-right">
+            <span class="expense-amount">${fmt(exp.amount)}</span>
+            <button class="delete-btn" aria-label="Delete expense ${exp.name}" data-index="${i}">×</button>
+          </div>`;
+        list.appendChild(li);
+      });
+    }
+
+    // Chart
+    const catTotals = {};
+    expenses.forEach(e => {
+      catTotals[e.category] = (catTotals[e.category] || 0) + e.amount;
+    });
+
+    const chart = document.getElementById('chart-bars');
+    chart.innerHTML = '';
+
+    const sorted = Object.entries(catTotals).sort((a,b) => b[1] - a[1]);
+    if (sorted.length === 0) {
+      chart.innerHTML = '<p class="empty-msg">Add expenses to see breakdown.</p>';
+    } else {
+      const max = sorted[0][1];
+      sorted.forEach(([cat, amt]) => {
+        const info = CATEGORIES[cat] || CATEGORIES.other;
+        const w = max > 0 ? (amt / max) * 100 : 0;
+        const row = document.createElement('div');
+        row.className = 'chart-row';
+        row.setAttribute('role', 'img');
+        row.setAttribute('aria-label', `${info.label}: ${fmt(amt)}`);
+        row.innerHTML = `
+          <span class="chart-label">${info.label}</span>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar color-${info.color}" style="width: ${w}%"></div>
+          </div>
+          <span class="chart-val">${fmt(amt)}</span>`;
+        chart.appendChild(row);
+      });
+    }
+  }
+
+  // Form submit
+  document.getElementById('expense-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name   = document.getElementById('expense-name').value.trim();
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    const cat    = document.getElementById('expense-category').value;
+    const date   = document.getElementById('expense-date').value;
+
+    if (!name || isNaN(amount) || amount <= 0) return;
+
+    expenses.push({ id: Date.now(), name, amount, category: cat, date });
+    save();
+    render();
+    this.reset();
+    document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('expense-name').focus();
+  });
+
+  // Delete
+  document.getElementById('expense-list').addEventListener('click', function(e) {
+    const btn = e.target.closest('.delete-btn');
+    if (!btn) return;
+    const i = parseInt(btn.dataset.index);
+    expenses.splice(i, 1);
+    save();
+    render();
+  });
+
+  // Set budget
+  document.getElementById('set-budget-btn').addEventListener('click', function() {
+    const val = parseFloat(document.getElementById('budget-input').value);
+    if (!isNaN(val) && val > 0) {
+      budget = val;
+      save();
+      render();
+    }
+  });
+
+  render();
+</script>
+
+</body>
+</html>
